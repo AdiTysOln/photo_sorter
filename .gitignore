@@ -1,0 +1,26 @@
+# Ignore virtual environment
+venv/
+
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ignore distribution / build artifacts
+build/
+dist/
+*.egg-info/
+
+# Ignore test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# Ignore editor / IDE settings
+.vscode/
+.idea/
+
+# Ignore OS-specific junk
+.DS_Store
+Thumbs.db
