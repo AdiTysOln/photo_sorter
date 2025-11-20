@@ -36,3 +36,12 @@ if __name__ == "__main__":
         print(
             f"- {taken_at_str} | {photo.size_bytes:>8} B | {photo.path}"
         )
+    # Test hashy pliku — pierwszy krok Etapu 3
+    from photo_sorter.deduplication.hashing import compute_file_hash
+
+    if len(photos_sorted) > 0:
+        sample = photos_sorted[0]
+        h = compute_file_hash(sample.path)
+        print("\n=== TEST HASHU — pierwsze zdjęcie ===")
+        print("Plik:", sample.path)
+        print("SHA-256:", h[:40], "...")  # skrócony wypis
