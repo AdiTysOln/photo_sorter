@@ -24,3 +24,7 @@ dist/
 # Ignore OS-specific junk
 .DS_Store
 Thumbs.db
+
+# Ignore Python bytecode and cache directories
+__pycache__/
+*.pyc
