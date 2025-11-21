@@ -3,8 +3,15 @@ from pathlib import Path
 from photo_sorter.scanning.filesystem_scanner import list_photo_paths
 from photo_sorter.scanning.image_analyzer import build_photo_infos
 from photo_sorter.scanning.sorting import sort_photos_by_taken_date
-from photo_sorter.deduplication.hashing import annotate_photos_with_file_hash
-from photo_sorter.deduplication.grouping import find_exact_duplicate_groups
+from photo_sorter.deduplication.hashing import (
+    annotate_photos_with_file_hash,
+    annotate_photos_with_perceptual_hash,  # <- to dodajemy
+)
+from photo_sorter.deduplication.grouping import (
+    find_exact_duplicate_groups,
+    find_near_duplicate_groups,
+    hamming_distance_hex,
+)
 
 
 if __name__ == "__main__":
@@ -49,6 +56,15 @@ if __name__ == "__main__":
         )
         print(f"  file_hash: {hash_preview}")
 
+    # 4b) Uzupełniamy perceptual hash (pHash) dla wszystkich zdjęć
+    annotate_photos_with_perceptual_hash(photos_sorted)
+
+    print("\n=== TEST PERCEPTUAL HASHES (first 5) ===")
+    for photo in photos_sorted[:5]:
+        print(f"{photo.path}")
+        ph = photo.perceptual_hash or "<brak>"
+        print(f"  perceptual_hash: {ph}")
+
     # 5) Szukamy grup identycznych duplikatów po file_hash
     duplicate_groups = find_exact_duplicate_groups(photos_sorted)
 
@@ -67,3 +83,31 @@ if __name__ == "__main__":
         print(f"\nGroup {idx} (size {len(group)}), hash: {example_hash}...")
         for photo in group:
             print(f"  - {photo.path}")
+
+    # 6) Near-duplicate groups based on perceptual_hash
+    near_duplicate_groups = find_near_duplicate_groups(photos_sorted, max_distance=5)
+
+    total_near_groups = len(near_duplicate_groups)
+    total_near_photos = sum(len(g) for g in near_duplicate_groups)
+
+    print("\n=== NEAR DUPLICATE GROUPS (by perceptual hash, max_distance=5) ===")
+    print(f"Total groups: {total_near_groups}")
+    print(f"Total photos in groups: {total_near_photos}")
+
+    max_near_groups_to_show = 3
+
+    for idx, group in enumerate(near_duplicate_groups[:max_near_groups_to_show], start=1):
+        ref = group[0]
+        print(f"\nNear Group {idx} (size {len(group)}), reference:")
+        print(f"  ref path:  {ref.path}")
+        print(f"  ref pHash: {ref.perceptual_hash}")
+
+        for photo in group[1:]:
+            if photo.perceptual_hash is None or ref.perceptual_hash is None:
+                distance = "?"
+            else:
+                distance = hamming_distance_hex(ref.perceptual_hash, photo.perceptual_hash)
+
+            print(f"  - {photo.path}")
+            print(f"    pHash:    {photo.perceptual_hash}")
+            print(f"    distance: {distance}")

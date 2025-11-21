@@ -13,5 +13,8 @@ class PhotoInfo:
 
     # SHA-256 hash całego pliku – używany do identycznych duplikatów 1:1
     file_hash: Optional[str] = None
-    # perceptual_hash dodamy później (near-duplikaty)
+
+    # Perceptual hash (np. pHash) – używany do near-duplikatów
+    perceptual_hash: Optional[str] = None
+
 
