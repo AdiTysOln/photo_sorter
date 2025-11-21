@@ -13,8 +13,8 @@ def sort_photos_by_taken_date(
     """
 
     def sort_key(photo: PhotoInfo):
-        # True > False, więc zdjęcia bez daty trafią na koniec
+        # True > False, so photos without date go to the end
         return (photo.taken_at is None, photo.taken_at)
 
-    # Zwracamy NOWĄ listę, oryginalnej nie ruszamy
+    # Return a NEW list, leaving the original unchanged
     return sorted(photos, key=sort_key, reverse=descending)

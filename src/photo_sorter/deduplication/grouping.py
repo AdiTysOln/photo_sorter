@@ -5,13 +5,12 @@ from photo_sorter.scanning.models import PhotoInfo
 def _group_photos_by_file_hash(photos: List[PhotoInfo]) -> Dict[str, List[PhotoInfo]]:
     """
     Groups photos by their file_hash (only non-None hashes).
-    # Grupuje zdjęcia po hashach plików (pomija None).
     """
     groups: Dict[str, List[PhotoInfo]] = {}
 
     for photo in photos:
         if not photo.file_hash:
-            # Brak hasha – np. plik zniknął albo nie został przeliczony
+            # No hash - e.g. file disappeared or wasn't computed
             continue
 
         if photo.file_hash not in groups:
@@ -25,8 +24,8 @@ def _group_photos_by_file_hash(photos: List[PhotoInfo]) -> Dict[str, List[PhotoI
 def find_exact_duplicate_groups(photos: List[PhotoInfo]) -> List[List[PhotoInfo]]:
     """
     Finds groups of exact duplicates based on file_hash.
-    # Zwraca listy PhotoInfo, gdzie każdy wewnętrzny zbiór to grupa
-    # identycznych plików (ten sam hash), o rozmiarze co najmniej 2.
+    Returns lists of PhotoInfo where each inner list is a group of
+    identical files (same hash), with size of at least 2.
     """
     grouped = _group_photos_by_file_hash(photos)
     duplicate_groups: List[List[PhotoInfo]] = []
@@ -41,8 +40,7 @@ def find_exact_duplicate_groups(photos: List[PhotoInfo]) -> List[List[PhotoInfo]
 def hamming_distance_hex(hash1: str, hash2: str) -> int:
     """
     Computes Hamming distance between two hex-encoded hashes.
-    # Liczy odległość Hamminga między dwoma hashami zapisanymi jako hex.
-    # Jeśli długości są różne, obcina do krótszej – na wszelki wypadek.
+    If lengths differ, truncates to the shorter one for safety.
     """
     if not hash1 or not hash2:
         raise ValueError("Both hashes must be non-empty strings")
@@ -63,13 +61,12 @@ def find_near_duplicate_groups(
 ) -> List[List[PhotoInfo]]:
     """
     Finds groups of near-duplicate photos based on perceptual_hash.
-    # Szuka grup near-duplikatów na podstawie perceptual_hash.
-    # max_distance – maksymalna odległość Hamminga między hashami,
-    # powyżej niej zdjęcia nie są traktowane jako near-duplikaty.
-    #
-    # Implementacja:
-    #  - bierzemy tylko zdjęcia z perceptual_hash != None,
-    #  - budujemy grupy jako spójne składowe po progu odległości.
+    max_distance - maximum Hamming distance between hashes,
+    above which photos are not treated as near-duplicates.
+
+    Implementation:
+     - takes only photos with perceptual_hash != None,
+     - builds groups as connected components by distance threshold.
     """
     candidates: List[PhotoInfo] = [p for p in photos if p.perceptual_hash]
     n = len(candidates)

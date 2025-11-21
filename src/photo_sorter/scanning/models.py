@@ -11,10 +11,11 @@ class PhotoInfo:
     size_bytes: int
     taken_at: Optional[datetime]
 
-    # SHA-256 hash całego pliku – używany do identycznych duplikatów 1:1
+      # Hash-related fields (Etap 3)
     file_hash: Optional[str] = None
-
-    # Perceptual hash (np. pHash) – używany do near-duplikatów
     perceptual_hash: Optional[str] = None
 
-
+    # Quality-related fields (Etap 4)
+    blur_score: Optional[float] = None  # niższa wartość -> bardziej rozmazane
+    brightness_score: Optional[float] = None  # średnia jasność (0-255)
+    is_potential_trash: Optional[bool] = None  # True/False po analizie jakości

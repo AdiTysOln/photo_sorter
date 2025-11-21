@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 
-# Obsługiwane rozszerzenia plików graficznych na start
+# Supported image file extensions for initial implementation
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
@@ -13,12 +13,12 @@ def _iter_photo_paths(root: Path) -> Iterable[Path]:
     :param root: Base directory to scan.
     :return: Generator of Path objects pointing to photo files.
     """
-    # Używamy rglob, żeby przejść rekurencyjnie po wszystkich podkatalogach
+    # Use rglob to recursively traverse all subdirectories
     for path in root.rglob("*"):
         if not path.is_file():
             continue
 
-        # Sprawdzamy rozszerzenie w trybie case-insensitive
+        # Check extension in case-insensitive mode
         if path.suffix.lower() in SUPPORTED_EXTENSIONS:
             yield path
 
@@ -32,12 +32,12 @@ def list_photo_paths(root_path: str | Path) -> List[Path]:
     """
     root = Path(root_path).expanduser().resolve()
 
-    # Walidacja wejścia – lepiej dostać czytelny błąd niż cicho zwrócić pustą listę
+    # Input validation - better to get a clear error than silently return an empty list
     if not root.exists():
         raise FileNotFoundError(f"Folder does not exist: {root}")
 
     if not root.is_dir():
         raise NotADirectoryError(f"Not a directory: {root}")
 
-    # Zbieramy wszystkie pasujące ścieżki
+    # Collect all matching paths
     return list(_iter_photo_paths(root))
