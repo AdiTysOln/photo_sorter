@@ -4,6 +4,7 @@ from photo_sorter.scanning.filesystem_scanner import list_photo_paths
 from photo_sorter.scanning.image_analyzer import build_photo_infos
 from photo_sorter.scanning.sorting import sort_photos_by_taken_date
 from photo_sorter.deduplication.hashing import annotate_photos_with_file_hash
+from photo_sorter.deduplication.grouping import find_exact_duplicate_groups
 
 
 if __name__ == "__main__":
@@ -36,14 +37,33 @@ if __name__ == "__main__":
 
         print(f"- {taken_at_str} | {photo.size_bytes:>8} B | {photo.path}")
 
-    # Test hashy pliku — krok 2 Etapu 3
-    # Uzupełniamy hash pliku dla wszystkich zdjęć
+    # 4) Uzupełniamy hash pliku dla wszystkich zdjęć
     annotate_photos_with_file_hash(photos_sorted)
 
     print("\n=== TEST HASHY PLIKÓW (pierwsze 5) ===")
     for photo in photos_sorted[:5]:
         print(f"{photo.path}")
         print(f"  size: {photo.size_bytes} B")
-        hash_preview = f"{photo.file_hash[:40]} ..." if photo.file_hash is not None else "<brak>"
+        hash_preview = (
+            f"{photo.file_hash[:40]} ..." if photo.file_hash is not None else "<brak>"
+        )
         print(f"  file_hash: {hash_preview}")
 
+    # 5) Szukamy grup identycznych duplikatów po file_hash
+    duplicate_groups = find_exact_duplicate_groups(photos_sorted)
+
+    total_groups = len(duplicate_groups)
+    total_photos_in_groups = sum(len(g) for g in duplicate_groups)
+
+    print("\n=== EXACT DUPLICATE GROUPS (by file hash) ===")
+    print(f"Total groups: {total_groups}")
+    print(f"Total photos in groups: {total_photos_in_groups}")
+
+    # Podgląd pierwszych kilku grup
+    max_groups_to_show = 3
+
+    for idx, group in enumerate(duplicate_groups[:max_groups_to_show], start=1):
+        example_hash = group[0].file_hash[:16] if group[0].file_hash else "<brak>"
+        print(f"\nGroup {idx} (size {len(group)}), hash: {example_hash}...")
+        for photo in group:
+            print(f"  - {photo.path}")
