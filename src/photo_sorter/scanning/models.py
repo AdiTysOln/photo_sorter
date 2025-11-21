@@ -1,18 +1,17 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 
 @dataclass
 class PhotoInfo:
-    """
-    Basic information about a photo file.
-    """
-    path: Path                 # Pełna ścieżka do pliku
-    file_name: str             # Nazwa pliku (bez ścieżki)
+    path: Path
+    file_name: str
+    size_bytes: int
+    taken_at: Optional[datetime]
 
-    # Poniższe pola zostawiamy na później – będziemy je stopniowo wypełniać
-    size_bytes: Optional[int] = None      # Rozmiar pliku w bajtach
-    taken_at: Optional[datetime] = None   # Data wykonania zdjęcia (EXIF lub mtime)
-    # Tu w przyszłości: hash, jakość, tagi, itp.
+    # SHA-256 hash całego pliku – używany do identycznych duplikatów 1:1
+    file_hash: Optional[str] = None
+    # perceptual_hash dodamy później (near-duplikaty)
+

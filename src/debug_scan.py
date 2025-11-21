@@ -3,6 +3,7 @@ from pathlib import Path
 from photo_sorter.scanning.filesystem_scanner import list_photo_paths
 from photo_sorter.scanning.image_analyzer import build_photo_infos
 from photo_sorter.scanning.sorting import sort_photos_by_taken_date
+from photo_sorter.deduplication.hashing import annotate_photos_with_file_hash
 
 
 if __name__ == "__main__":
@@ -33,15 +34,16 @@ if __name__ == "__main__":
             else "N/A"
         )
 
-        print(
-            f"- {taken_at_str} | {photo.size_bytes:>8} B | {photo.path}"
-        )
-    # Test hashy pliku — pierwszy krok Etapu 3
-    from photo_sorter.deduplication.hashing import compute_file_hash
+        print(f"- {taken_at_str} | {photo.size_bytes:>8} B | {photo.path}")
 
-    if len(photos_sorted) > 0:
-        sample = photos_sorted[0]
-        h = compute_file_hash(sample.path)
-        print("\n=== TEST HASHU — pierwsze zdjęcie ===")
-        print("Plik:", sample.path)
-        print("SHA-256:", h[:40], "...")  # skrócony wypis
+    # Test hashy pliku — krok 2 Etapu 3
+    # Uzupełniamy hash pliku dla wszystkich zdjęć
+    annotate_photos_with_file_hash(photos_sorted)
+
+    print("\n=== TEST HASHY PLIKÓW (pierwsze 5) ===")
+    for photo in photos_sorted[:5]:
+        print(f"{photo.path}")
+        print(f"  size: {photo.size_bytes} B")
+        hash_preview = f"{photo.file_hash[:40]} ..." if photo.file_hash is not None else "<brak>"
+        print(f"  file_hash: {hash_preview}")
+
