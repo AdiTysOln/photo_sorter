@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
+import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
@@ -24,6 +25,9 @@ from photo_sorter.quality.analysis import (
 
 # Global variable to keep last analysis result in memory.  # Zmienna globalna, w której trzymamy wynik ostatniej analizy (na przyszłe etapy GUI).
 LAST_ANALYSIS_RESULT: Dict[str, Any] | None = None
+
+# Global variable to remember the last scanned root folder.  # Zmienna globalna z ostatnio skanowanym folderem (do tworzenia trash_preview).
+LAST_ANALYZED_ROOT: Path | None = None
 
 # Global reference to the trash Listbox widget.  # Globalne odniesienie do Listboxa z listą śmieci.
 TRASH_LISTBOX: tk.Listbox | None = None
@@ -113,6 +117,67 @@ def refresh_trash_listbox() -> None:
         TRASH_LISTBOX.insert(tk.END, display_text)
 
 
+def move_all_potential_trash_to_preview(
+    root_folder: Path,
+    potential_trash: list[Any],
+) -> int:
+    """
+    Move all potential trash photos to a 'trash_preview' subfolder
+    inside the given root folder.
+
+    Returns the number of successfully moved files.
+
+    # Funkcja przenosi wszystkie potencjalne śmieci do podfolderu
+    # 'trash_preview' w katalogu głównym skanowania.
+    # Zwraca liczbę faktycznie przeniesionych plików.
+    """
+    trash_dir = root_folder / "trash_preview"
+    trash_dir.mkdir(exist_ok=True)
+
+    moved_count = 0
+
+    for item in potential_trash:
+        try:
+            src_path = item.path  # type: ignore[attr-defined]
+        except AttributeError:
+            # If object has no .path attribute, we skip it.
+            # Jeśli obiekt nie ma atrybutu .path, pomijamy go.
+            continue
+
+        if not isinstance(src_path, Path):
+            src_path = Path(src_path)
+
+        # Skip if file does not exist anymore or is not a regular file.
+        # Pomijamy, jeśli plik już nie istnieje albo nie jest zwykłym plikiem.
+        if not src_path.exists() or not src_path.is_file():
+            continue
+
+        # Skip if the file is already in trash_dir.
+        # Jeśli plik już jest w trash_preview, nie ruszamy go.
+        if src_path.parent == trash_dir:
+            continue
+
+        dest_path = trash_dir / src_path.name
+
+        # If destination exists, generate a unique name.
+        # Jeśli docelowy plik istnieje, generujemy unikalną nazwę.
+        if dest_path.exists():
+            stem = dest_path.stem
+            suffix = dest_path.suffix
+            counter = 1
+            while True:
+                candidate = trash_dir / f"{stem}__trash_{counter}{suffix}"
+                if not candidate.exists():
+                    dest_path = candidate
+                    break
+                counter += 1
+
+        shutil.move(str(src_path), str(dest_path))
+        moved_count += 1
+
+    return moved_count
+
+
 def create_main_window() -> tk.Tk:
     """
     Create the main Tkinter window with a button and basic summary labels.
@@ -121,9 +186,10 @@ def create_main_window() -> tk.Tk:
     - lets the user choose a folder,
     - calls run_backend_pipeline(root_folder: Path),
     - displays a few numbers from the returned data,
-    - shows a Listbox with potential trash photos.
+    - shows a Listbox with potential trash photos,
+    - allows moving all potential trash photos to trash_preview/.
     """
-    global TRASH_LISTBOX
+    global TRASH_LISTBOX, LAST_ANALYZED_ROOT
 
     root = tk.Tk()
     root.title("Photo Sorter - Etap 5 (mini GUI)")
@@ -136,7 +202,7 @@ def create_main_window() -> tk.Tk:
         value="Nie wykonano jeszcze skanowania."
     )
 
-    # --- Button callback ---
+    # --- Button callbacks ---
 
     def on_choose_and_scan() -> None:
         """
@@ -180,8 +246,9 @@ def create_main_window() -> tk.Tk:
             return
 
         # Make summary globally available for future GUI steps.  # Zapisujemy wynik globalnie na potrzeby kolejnych kroków GUI.
-        global LAST_ANALYSIS_RESULT
+        global LAST_ANALYSIS_RESULT, LAST_ANALYZED_ROOT
         LAST_ANALYSIS_RESULT = summary
+        LAST_ANALYZED_ROOT = root_folder
 
         photos = summary["photos"]
         exact_groups = summary["exact_groups"]
@@ -201,6 +268,64 @@ def create_main_window() -> tk.Tk:
         # After updating stats, refresh the trash Listbox based on backend data.
         # Po zaktualizowaniu statystyk odświeżamy Listbox ze śmieciami na podstawie danych z backendu.
         refresh_trash_listbox()
+
+    def on_move_all_trash() -> None:
+        """
+        Move all potential trash photos (from LAST_ANALYSIS_RESULT["potential_trash"])
+        into trash_preview/ under the last analyzed root folder.
+
+        # Funkcja przenosi wszystkie potencjalne śmieci z ostatniego skanowania
+        # do podfolderu trash_preview/ w katalogu głównym.
+        """
+        global LAST_ANALYSIS_RESULT, LAST_ANALYZED_ROOT
+
+        if LAST_ANALYSIS_RESULT is None or LAST_ANALYZED_ROOT is None:
+            messagebox.showinfo(
+                "Brak danych",
+                "Najpierw przeskanuj folder, zanim spróbujesz przenieść śmieci.",
+            )
+            return
+
+        potential_trash = LAST_ANALYSIS_RESULT.get("potential_trash") or []
+        if not potential_trash:
+            messagebox.showinfo(
+                "Brak śmieci",
+                "Brak potencjalnych zdjęć 'śmieciowych' do przeniesienia.",
+            )
+            return
+
+        moved = move_all_potential_trash_to_preview(
+            LAST_ANALYZED_ROOT,
+            potential_trash,
+        )
+
+        # After moving, we clear the potential_trash list in the analysis result.
+        # Po przeniesieniu czyścimy listę potential_trash w wynikach analizy.
+        LAST_ANALYSIS_RESULT["potential_trash"] = []
+
+        # Recompute stats for the labels.
+        # Przeliczamy statystyki na potrzeby etykiety.
+        photos = LAST_ANALYSIS_RESULT["photos"]
+        exact_groups = LAST_ANALYSIS_RESULT["exact_groups"]
+        num_photos = len(photos)
+        num_exact_groups = len(exact_groups)
+        num_potential_trash = len(LAST_ANALYSIS_RESULT["potential_trash"])
+
+        stats_text = (
+            f"Liczba znalezionych zdjęć: {num_photos}\n"
+            f"Liczba grup dokładnych duplikatów: {num_exact_groups}\n"
+            f"Liczba potencjalnych zdjęć 'śmieciowych': {num_potential_trash}"
+        )
+        stats_var.set(stats_text)
+
+        # Refresh the Listbox to reflect the new (empty) potential trash list.
+        # Odświeżamy Listbox, żeby pokazać aktualny (pusty) stan listy śmieci.
+        refresh_trash_listbox()
+
+        messagebox.showinfo(
+            "Przenoszenie zakończone",
+            f"Przeniesiono {moved} plików do folderu 'trash_preview' w:\n{LAST_ANALYZED_ROOT}",
+        )
 
     # --- Layout ---
 
@@ -230,8 +355,8 @@ def create_main_window() -> tk.Tk:
     )
     stats_label.pack(anchor="w", pady=(4, 0))
 
-    # --- Potential trash list (read-only for now) ---
-    # Lista potencjalnych śmieci (na razie tylko do odczytu).
+    # --- Potential trash list (read-only + move button) ---
+    # Lista potencjalnych śmieci (na razie odczyt + przycisk przeniesienia wszystkich).
     trash_frame = tk.Frame(main_frame, pady=12)
     trash_frame.pack(fill="both", expand=True)
 
@@ -260,6 +385,13 @@ def create_main_window() -> tk.Tk:
     scrollbar.pack(side="right", fill="y")
 
     TRASH_LISTBOX.config(yscrollcommand=scrollbar.set)
+
+    move_button = tk.Button(
+        trash_frame,
+        text="Przenieś wszystkie śmieci do trash_preview",
+        command=on_move_all_trash,
+    )
+    move_button.pack(anchor="e", pady=(8, 0))
 
     return root
 
